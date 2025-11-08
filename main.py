@@ -1,8 +1,6 @@
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import numpy as np
 
 from models import DescriptionModel, Prompt, Need
 from utils import ( 
@@ -14,7 +12,6 @@ from utils import (
     get_need_emb,
     get_similarity
 )
-from config import NEED_INDEX_NAME, OFFER_INDEX_NAME
 
 load_dotenv()
 
