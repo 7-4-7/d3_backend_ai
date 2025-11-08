@@ -1,8 +1,8 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware  # <-- Add this import
 import numpy as np
-
 
 from models import DescriptionModel, Prompt, Need
 from utils import ( 
@@ -15,6 +15,28 @@ from utils import (
     get_need_emb,
 )
 from config import NEED_INDEX_NAME, OFFER_INDEX_NAME
+
+load_dotenv()
+
+app = FastAPI(
+    title="Skill Embedding Service",
+    description="API to embed user skill descriptions and push to Pinecone.",
+    version="1.0.0"
+)
+
+# Add CORS middleware before route definitions
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Change this to specific frontend URL(s) later, e.g. ["http://localhost:3000"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get('/')
+def status():
+    return {'message': 'ALIVE'}
+
 
 load_dotenv()
 
