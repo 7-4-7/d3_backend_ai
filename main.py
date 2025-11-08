@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from models import DescriptionModel, Prompt, Need, Prerequisites
+from models import DescriptionModel, Prompt, Need
 from utils import ( 
     get_emb, 
     push_db_need,
@@ -12,7 +12,6 @@ from utils import (
     get_need_emb,
     get_similarity,
     run_ambiguity_checker,
-    get_pr,
 )
 
 load_dotenv()
@@ -74,12 +73,7 @@ def upload_user_profile(user : DescriptionModel):
         combined_text = ""
     return {'message' : 'sent to need db', "response" : response}
 
-@app.post('/get-prequisites')
-def get_prerequisites(pr : Prerequisites):
-    pr = pr.dict()
-    if pr == True:
-        pr_text = get_pr()
-    
+
     
 @app.post('/compatible-users')
 def find_compatible_users(prompt: Prompt):
@@ -100,12 +94,10 @@ def find_compatible_users(prompt: Prompt):
         user_offer_emb_list, user_offerings_str = retrive_offer_emb(user_id) # What user is offering
         
         if not user_offer_emb_list:
-            return {
-                "status": "error",
-                "message": f"No offers found for user {user_id}",
-                "compatible_users": []
-            }
-        
+            emb = get_emb(query)
+            response = push_db_need(user_id, emb, query)
+            return {"message" : 'No User Found, pushed to fleeting'}
+    
         seen_users = set()
         user_list = []
         

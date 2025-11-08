@@ -3,7 +3,7 @@ import json
 from typing import Dict, List, Tuple, Any
 import uuid
 
-from prompts import ambigous_checker_prompt, get_prerequisite_prompt
+from prompts import ambiguous_checker_prompt, get_prerequisite_prompt
 from config import (
     pc, EMBEDDING_MODEL, INDEX_NAME, INDEX_HOST, 
     NEED_INDEX_NAME, OFFER_INDEX_NAME, client, MODEL_NAME
@@ -12,8 +12,8 @@ from config import (
 import numpy as np
 
 def run_ambiguity_checker(query):
-    content = ambigous_checker_prompt.format(query)
-    response = client.generate_content(
+    content = ambiguous_checker_prompt.format(query = query)
+    response = client.models.generate_content(
         model = MODEL_NAME,
         contents = content,
     )
@@ -30,10 +30,43 @@ def get_similarity(offer_list, need_emb):
     best_score = float(sim_scores[best_idx])
     return best_score, best_idx
 
+import json
+from typing import Dict
+
 def json_parser(response_str: str) -> Dict:
-    """Parse JSON response string."""
-    data = json.loads(response_str)
-    return data
+    """Safely parse JSON string returned by model."""
+    # Handle None or empty responses
+    if not response_str or not response_str.strip():
+        print("⚠️ Warning: Empty response string.")
+        return {
+            "ambiguous": True,
+            "reason": "Empty or null response from model.",
+            "suggestions": []
+        }
+
+    try:
+        # Try direct parse first
+        return json.loads(response_str)
+    except json.JSONDecodeError:
+        # Attempt to extract JSON-like portion if extra text exists
+        start = response_str.find("{")
+        end = response_str.rfind("}") + 1
+        if start != -1 and end > start:
+            try:
+                return json.loads(response_str[start:end])
+            except json.JSONDecodeError:
+                pass  # fall through to fallback
+
+        # Log the malformed response for debugging
+        print("❌ JSON Parse Error: Invalid JSON format.")
+        print("Response was:\n", response_str)
+
+        # Fallback response if parsing fails
+        return {
+            "ambiguous": True,
+            "reason": "Model returned invalid JSON.",
+            "suggestions": []
+        }
 
 def check_ambiguity(query: str) -> str:
     """Check if query is ambiguous using LLM."""
@@ -76,31 +109,45 @@ def push_db_offer(user_id, embed, combined_text):
         ]
     )
     
+import time
+from pinecone import ServerlessSpec
+
 def push_db_need(user_id, embed, need_text):
     index_list = pc.list_indexes().names()
+    
     if NEED_INDEX_NAME not in index_list:
-        print('Creating New Index', NEED_INDEX_NAME)
+        print('Creating New Index:', NEED_INDEX_NAME)
         pc.create_index(
             name=NEED_INDEX_NAME,
             dimension=768, 
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1")
         )
+        
+        # CRITICAL: Wait for index to be ready
+        print('Waiting for index to initialize...')
+        while not pc.describe_index(NEED_INDEX_NAME).status['ready']:
+            print('...still waiting...')
+            time.sleep(2)
+        print('✅ Index ready!')
+    
     index = pc.Index(NEED_INDEX_NAME)
-    print(f"Pushing embedding to Pinecone: {user_id}")
+    print(f"Pushing embedding to Pinecone: user_id={user_id}")
+    
     index.upsert(
         vectors=[
             {
                 "id": str(uuid.uuid4()),
                 "values": embed,
-                "metadata" : {
-                    "user_id" : user_id,
-                    "need_text" : need_text,
-                     
+                "metadata": {
+                    "user_id": user_id,
+                    "need_text": need_text,
                 }
             }
         ]
     )
+    
+    return {"status": "success"}
  
 def get_need_emb(user_id):
     index = pc.Index(NEED_INDEX_NAME)
