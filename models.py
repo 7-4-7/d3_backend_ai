@@ -1,6 +1,9 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
+class Prerequisites(BaseModel):
+    value : bool
+    
 class SkillModel(BaseModel):
     skill_name: str
     components: Optional[List[str]] = None

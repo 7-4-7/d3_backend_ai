@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from models import DescriptionModel, Prompt, Need
+from models import DescriptionModel, Prompt, Need, Prerequisites
 from utils import ( 
     get_emb, 
     push_db_need,
@@ -10,7 +10,9 @@ from utils import (
     search_offer_db,
     retrive_offer_emb,
     get_need_emb,
-    get_similarity
+    get_similarity,
+    run_ambiguity_checker,
+    get_pr,
 )
 
 load_dotenv()
@@ -72,10 +74,22 @@ def upload_user_profile(user : DescriptionModel):
         combined_text = ""
     return {'message' : 'sent to need db', "response" : response}
 
+@app.post('/get-prequisites')
+def get_prerequisites(pr : Prerequisites):
+    pr = pr.dict()
+    if pr == True:
+        pr_text = get_pr()
+    
+    
 @app.post('/compatible-users')
 def find_compatible_users(prompt: Prompt):
         prompt_dict = prompt.dict()
         query = prompt_dict['query']
+        ambiguity_check_reponse = run_ambiguity_checker(query)
+        if ambiguity_check_reponse['ambiguous'] == "false":
+            return {'message' : 'Ambigous',
+                    'suggestion' : ambiguity_check_reponse["suggestions"]}
+
         user_profile = prompt_dict['user_profile']
         user_id = user_profile['user_id']
         

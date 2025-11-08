@@ -3,13 +3,23 @@ import json
 from typing import Dict, List, Tuple, Any
 import uuid
 
-from prompts import ambigous_checker_prompt
+from prompts import ambigous_checker_prompt, get_prerequisite_prompt
 from config import (
     pc, EMBEDDING_MODEL, INDEX_NAME, INDEX_HOST, 
     NEED_INDEX_NAME, OFFER_INDEX_NAME, client, MODEL_NAME
 )
 
 import numpy as np
+
+def run_ambiguity_checker(query):
+    content = ambigous_checker_prompt.format(query)
+    response = client.generate_content(
+        model = MODEL_NAME,
+        contents = content,
+    )
+    reponse = response.text
+    parsed_response = json_parser(reponse)
+    return parsed_response
 
 def get_similarity(offer_list, need_emb):
     offer_list_np = np.array(offer_list) 
